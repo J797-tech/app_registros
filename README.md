@@ -1,10 +1,11 @@
-# 📱 Gestor Personal
+# 📱 Gestor Personal Full-Stack
 
 ![Flutter](https://img.shields.io/badge/Flutter-%2302569B.svg?style=for-the-badge&logo=Flutter&logoColor=white)
-![Dart](https://img.shields.io/badge/dart-%230175C2.svg?style=for-the-badge&logo=dart&logoColor=white)
-![Material 3](https://img.shields.io/badge/Material--3-7D5260?style=for-the-badge&logo=materialdesign&logoColor=white)
+![Node.js](https://img.shields.io/badge/Node.js-339933?style=for-the-badge&logo=nodedotjs&logoColor=white)
+![MongoDB](https://img.shields.io/badge/MongoDB-%234ea94b.svg?style=for-the-badge&logo=mongodb&logoColor=white)
+![Render](https://img.shields.io/badge/Render-%2346E3B7.svg?style=for-the-badge&logo=render&logoColor=white)
 
-**Gestor Personal** es una solución móvil integral diseñada para la organización de la vida cotidiana. Enfocada en la privacidad y la experiencia de usuario, permite gestionar registros diarios bajo un entorno seguro, multiusuario y altamente personalizable.
+**Gestor Personal** ha evolucionado de una aplicación local a una herramienta de productividad **Full-Stack**. Ahora permite la persistencia de datos en la nube y la sincronización multiplataforma mediante una arquitectura cliente-servidor robusta.
 
 ---
 
@@ -19,35 +20,31 @@
 
 ## 🚀 Características Destacadas
 
-### 👥 Experiencia Multi-Usuario
-- **Aislamiento de Datos**: Cada perfil cuenta con su propio almacenamiento mediante prefijos de usuario.
-- **Sesión Persistente**: Implementación de acceso automático para una entrada sin fricciones.
+### ☁️ Sincronización en la Nube
+- **Persistencia Real**: Todos tus datos se guardan en una base de datos MongoDB Atlas.
+- **Acceso Remoto**: Gracias al despliegue en Render, puedes acceder a tus registros desde cualquier dispositivo con la app.
 
-### 📝 Gestión de Registros (CRUD)
-- **Categorización**: Organiza tus notas en: *Trabajo, Personal, Importante o General*.
-- **Historial Estampado**: Registro preciso de fecha y hora mediante `intl`.
-- **Edición Reactiva**: Modifica registros existentes al instante.
+### 👤 Autenticación y Perfiles
+- **Sistema de Cuentas**: Registro e inicio de sesión seguro con contraseñas encriptadas (bcrypt).
+- **Preferencia de Usuario**: El Modo Oscuro y el Color Primario se sincronizan automáticamente con tu cuenta en el servidor.
 
-### 🎨 Personalización UI/UX
-- **Material 3**: Interfaz moderna con componentes dinámicos.
-- **Engine de Temas**: 
-  - Selector de colores semilla dinámico.
-  - Soporte para **Modo Oscuro** y **Modo Claro**.
-- **Tipografía**: Integración con Google Fonts (Poppins).
+### 📊 Estadísticas y Productividad
+- **Panel de Control**: Visualización en tiempo real de tareas totales, completadas y efectividad en la sección de ajustes.
+- **Historial Completo**: Gestión avanzada de tareas con posibilidad de limpieza total de historial.
 
-### 🛡️ Seguridad y Migración
-- **Visualización Segura**: Control de visibilidad en contraseñas.
-- **Motor de Migración**: Al actualizar un usuario, el sistema transfiere automáticamente todos los datos a la nueva identidad.
+### 🎨 Identidad Visual Renovada
+- **Nuevo Icono**: Imagen de marca personalizada que representa productividad y análisis.
+- **Material 3**: Interfaz refinada con colores dinámicos.
 
 ---
 
 ## 🏗️ Arquitectura del Sistema
 
-La aplicación sigue un patrón de **Separación de Responsabilidades**:
+La aplicación utiliza una arquitectura **MERN-like** adaptada para móvil:
 
-1.  **Capa de Presentación (UI)**: Localizada en `lib/*.dart`, gestiona la interacción del usuario.
-2.  **Capa de Lógica de Negocio**: Controlada por el estado global en `main.dart`.
-3.  **Capa de Persistencia**: Encapsulada en `PreferencesService` para centralizar el uso de `SharedPreferences`.
+1.  **Frontend (Flutter)**: Interfaz de usuario reactiva y gestión de estado local con `SharedPreferences` para caché.
+2.  **Backend (Node.js/Express)**: API RESTful encargada de la lógica de negocio y seguridad.
+3.  **Base de Datos (MongoDB)**: Almacenamiento NoSQL para flexibilidad en los registros de tareas y preferencias.
 
 ---
 
@@ -55,43 +52,44 @@ La aplicación sigue un patrón de **Separación de Responsabilidades**:
 
 | Tecnología | Propósito |
 | :--- | :--- |
-| **Flutter** | Framework de desarrollo UI |
-| **Dart** | Lenguaje de programación |
-| **Shared Preferences** | Persistencia de datos local |
-| **Google Fonts** | Tipografía personalizada |
-| **Intl** | Formateo de fechas |
+| **Flutter** | Desarrollo de la aplicación móvil |
+| **Node.js & Express** | Servidor API REST |
+| **MongoDB** | Base de Datos persistente |
+| **Render** | Hosting del Backend |
+| **Bcrypt & JWT** | Seguridad y Autenticación |
 
 ---
 
 ## 📁 Estructura del Proyecto
 
 ```bash
-lib/
-├── main.dart               # Orquestador global y Tematización
-├── preferences_service.dart # Servicio de persistencia y Migraciones
-├── welcome_page.dart       # Landing page de bienvenida
-├── login_page.dart          # Autenticación y Registro
-├── home_page.dart           # Dashboard y Gestión de registros
-└── settings_page.dart       # Perfil y Personalización visual
+app_registros/          # Repositorio Frontend (Flutter)
+├── lib/
+│   ├── api_service.dart     # Comunicación con el Servidor Render
+│   ├── preferences_service.dart # Caché local
+│   ├── main.dart            # Temas y Navegación
+│   └── ...                  # Pantallas (Home, Login, Settings)
+└── assets/icon/             # Recursos visuales y Nuevo Icono
+
+API_GESTION/            # Repositorio Backend (Node.js)
+├── server.js                # Servidor Express y Rutas API
+├── models/                  # Esquemas de MongoDB (User, Task, Prefs)
+└── .env                     # Configuración de variables (Puerto 3001)
 ```
 
 ---
 
 ## ⚙️ Instalación y Configuración
 
-### Pasos
-1. **Clonar el repositorio:**
-   ```bash
-   git clone https://github.com/tu-usuario/app_registros.git
-   ```
-2. **Instalar dependencias:**
-   ```bash
-   flutter pub get
-   ```
-3. **Ejecutar:**
-   ```bash
-   flutter run
-   ```
+### Backend
+1. Navegar a la carpeta del servidor.
+2. Ejecutar `npm install`.
+3. Configurar variables de entorno y ejecutar con `npm start` (usa el puerto 3001 por defecto).
+
+### Frontend
+1. Asegurarse de tener la URL de la API correcta en `api_service.dart`.
+2. Ejecutar `flutter pub get`.
+3. Ejecutar `flutter run` para desarrollo o `flutter build apk` para generar el instalador.
 
 ---
-*Desarrollado para la organización de registros personales.*
+*Gestor Personal: Productividad real, sincronizada y segura.*

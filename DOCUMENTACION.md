@@ -1,86 +1,70 @@
-# Informe Detallado de Desarrollo - Protocolo Unidad 3
-**Proyecto:** App de Registros con Flutter
-**Estado:** Prototipo Funcional Finalizado
+# Informe Detallado de Desarrollo - Protocolo Unidad 4 (Final)
+**Proyecto:** App de Registros con Flutter & Backend Node.js
+**Estado:** Aplicación Full-Stack Desplegada
 
 ---
 
-## 1. Objetivos de la Aplicación
+## 1. Evolución del Proyecto
 
-### Objetivo General
-Desarrollar una solución móvil multiplataforma que permita la gestión eficiente de información personal mediante un sistema CRUD (Crear, Leer, Actualizar, Borrar), integrando persistencia de datos local y una interfaz de usuario altamente personalizable.
-
-### Objetivos Específicos
-*   **Funcionalidad:** Implementar un flujo de usuario completo que abarque desde la bienvenida y autenticación por nombre hasta la gestión de registros categorizados.
-*   **Persistencia:** Utilizar almacenamiento local (`shared_preferences`) para mantener la integridad de los datos y las preferencias estéticas del usuario entre sesiones.
-*   **Interfaz:** Aplicar los principios de **Material 3** para ofrecer una experiencia visual moderna, adaptativa y personalizable mediante colores semilla.
+### De Local a Global
+El proyecto ha trascendido la persistencia local en `shared_preferences` para convertirse en una solución **Full-Stack**. Se ha implementado un servidor propio y una base de datos en la nube, permitiendo que el usuario mantenga sus datos seguros y accesibles desde cualquier dispositivo.
 
 ---
 
-## 2. Lista de Tareas (Backlog)
+## 2. Arquitectura Técnica Actualizada
 
-El desarrollo se organizó siguiendo una metodología por módulos para asegurar un código limpio:
-*   [x] **Módulo de Datos:** Creación del `PreferencesService` para manejar el guardado y carga de archivos JSON.
-*   [x] **Interfaz de Acceso:** Desarrollo de la `WelcomePage` y el sistema de Login basado en perfiles únicos.
-*   [x] **Gestión Central (CRUD):** Implementación de la lógica para insertar, listar, editar y eliminar registros en `HomePage`.
-*   [x] **Personalización:** Desarrollo de la `SettingsPage` para el control de temas (Claro/Oscuro) y selección de colores.
-*   [x] **Integración de Estilos:** Configuración de `Google Fonts (Poppins)` y esquemas de color dinámicos.
+### Backend (API REST)
+*   **Motor:** Node.js con Express.
+*   **Base de Datos:** MongoDB (NoSQL) para un manejo flexible de documentos (Tareas y Usuarios).
+*   **Seguridad:** Encriptación de contraseñas mediante `bcrypt` y preparación para tokens `JWT`.
+*   **Despliegue:** Alojado en **Render** (PaaS), garantizando disponibilidad vía HTTPS.
 
----
-
-## 3. Diseño UI/UX
-
-### Prototipado y Flujo
-Se diseñó un flujo de usuario intuitivo y sin fricciones:
-1.  **Entrada:** Bienvenida visual con imagen motivacional.
-2.  **Identificación:** Registro de nombre para personalizar la base de datos local.
-3.  **Gestión:** Panel principal con un formulario superior de fácil acceso y una lista cronológica inferior.
-4.  **Configuración:** Menú lateral (Drawer) y acceso rápido a ajustes de apariencia.
-
-### Validación Visual
-*   **Tipografía:** Se seleccionó *Poppins* por su equilibrio entre modernidad y legibilidad.
-*   **Componentes:** Uso de `Cards` con bordes redondeados (20.0) y `FilledButtons` para una estética limpia y amigable.
-*   **Color Dinámico:** La app genera toda su paleta a partir de un único color elegido por el usuario (`seedColor`), garantizando armonía visual.
+### Frontend (Flutter)
+*   **Comunicación:** Cliente HTTP (`http` package) configurado para interactuar con la API en la nube.
+*   **Sincronización:** Las preferencias de usuario (Tema y Color) se guardan tanto localmente (para carga rápida) como en el servidor (para persistencia entre dispositivos).
+*   **Modelo de Datos:** Implementación de `TaskModel` para mapear de forma limpia las respuestas JSON del servidor.
 
 ---
 
-## 4. Desarrollo en Flutter
+## 3. Lista de Tareas Realizadas (Backlog Finalizado)
 
-### Modularidad y Componentes
-*   **Separación de Responsabilidades:** La lógica de almacenamiento está aislada en un servicio independiente, lo que permite cambiar la base de datos en el futuro sin afectar la interfaz.
-*   **Gestión de Estados:** Se utiliza `setState` de forma eficiente para actualizar la UI instantáneamente al guardar o borrar registros.
-*   **Componentes Reutilizables:** El sistema de temas en `main.dart` actúa como un proveedor de estilo para todas las pantallas del proyecto.
-
-### Buenas Prácticas
-*   **Nomenclatura:** Uso de nombres descriptivos (ej. `_saveOrUpdateRecord`, `_editingIndex`).
-*   **Código Ordenado:** Estructura de archivos clara y uso de comentarios para facilitar el trabajo colaborativo.
+*   [x] **Infraestructura:** Creación del servidor Node.js y conexión a MongoDB Atlas.
+*   [x] **Migración de Datos:** Los registros pasaron de archivos locales a documentos en la nube.
+*   [x] **Seguridad:** Implementación de rutas de Registro e Inicio de Sesión.
+*   [x] **Identidad Visual:** Generación de un nuevo set de iconos de aplicación profesionales mediante `flutter_launcher_icons`.
+*   [x] **Estadísticas Reales:** Implementación de lógica en el servidor para calcular efectividad y conteo de tareas en tiempo real.
+*   [x] **Despliegue:** Configuración y lanzamiento exitoso en la URL de producción de Render.
 
 ---
 
-## 5. Realización de Pruebas
+## 4. Diseño y UX Mejorado
 
-### Validación Funcional
-*   **CRUD:** Se verificó que el formulario actualice los registros existentes en lugar de crear duplicados cuando se está en modo edición.
-*   **Persistencia:** Prueba de "reinicio en frío" (cerrar y abrir app) confirmando que los registros y el color elegido no se pierden.
-*   **Validación:** El sistema impide el guardado de campos vacíos mediante validadores de formulario.
+### Branding
+Se reemplazó el icono genérico de Flutter por uno personalizado que integra gráficas y un lápiz, reforzando la temática de "Gestión y Análisis".
 
-### Experiencia del Usuario (UX)
-*   Se revisó la fluidez de las transiciones entre páginas.
-*   El **Modo Oscuro** fue optimizado para mejorar la comodidad visual en entornos con poca luz.
+### Rendimiento
+*   **Caché Híbrida:** La app carga los últimos datos locales mientras espera la respuesta del servidor, mejorando la sensación de velocidad.
+*   **Feedback:** Manejo de estados de carga (Loading) durante las peticiones a la API.
 
 ---
 
-## 6. Registro de Funcionalidades y Uso
+## 5. Pruebas y Validación
 
-### Funcionalidades Implementadas
-*   **Categorización:** Clasificación de registros en: *General, Trabajo, Personal e Importante*.
-*   **Sellos de Tiempo:** Registro automático de la fecha y hora de cada entrada.
-*   **Sesión Inteligente:** La app detecta si ya existe un usuario activo para saltar el login automáticamente.
-
-### Manual de Uso Rápido
-1.  **Inicio:** Presione "COMENZAR" e ingrese su nombre.
-2.  **Registrar:** Escriba una nota en el cuadro superior, elija una categoría y pulse "GUARDAR".
-3.  **Editar/Borrar:** Use los iconos de la derecha en cada tarjeta del historial.
-4.  **Personalizar:** Vaya a Ajustes para cambiar el color de la app o activar el modo noche.
+*   **Prueba de Conectividad:** Verificación de acceso desde dispositivos físicos Android a través de redes móviles hacia el servidor en Render.
+*   **Ciclo CRUD:** Creación, edición, completado y eliminación masiva de tareas verificado contra la base de datos MongoDB.
+*   **Persistencia de Perfil:** Se comprobó que al cambiar el color de la app en un dispositivo, este se mantiene al cerrar sesión y volver a entrar.
 
 ---
-**Conclusión:** Este proyecto representa un prototipo funcional robusto que cumple íntegramente con los requisitos de desarrollo colaborativo y buenas prácticas de la Unidad 3.
+
+## 6. Manual de Configuración Técnica
+
+### URL de la API
+La aplicación apunta actualmente a: `https://overunidad4.onrender.com/api`
+
+### Comandos de Mantenimiento
+*   **Generar APK:** `flutter build apk`
+*   **Actualizar Iconos:** `dart run flutter_launcher_icons`
+*   **Sincronizar Git:** `git push origin main`
+
+---
+**Conclusión:** La aplicación ha alcanzado su madurez técnica, cumpliendo con los estándares de una aplicación moderna: Segura, Sincronizada y con una Experiencia de Usuario pulida.
