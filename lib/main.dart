@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import 'api_service.dart';
 import 'home_page.dart';
-import 'login_page.dart';
-import 'welcome_page.dart';
 import 'preferences_service.dart';
+import 'welcome_page.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -23,6 +23,7 @@ class MyApp extends StatefulWidget {
 
 class _MyAppState extends State<MyApp> {
   final _prefs = PreferencesService();
+  final _apiService = ApiService();
   ThemeMode _themeMode = ThemeMode.system;
   Color _primaryColor = const Color(0xFF6750A4);
   bool _isLoading = true;
@@ -39,8 +40,17 @@ class _MyAppState extends State<MyApp> {
     final loggedUser = await _prefs.getCurrentUser();
 
     if (loggedUser != null) {
-      final isDark = await _prefs.isDarkMode(loggedUser);
-      final colorVal = await _prefs.getPrimaryColor(loggedUser);
+      // Intentar sincronizar preferencias desde la API
+      final apiPrefs = await _apiService.getPrefs(loggedUser);
+
+      bool isDark = await _prefs.isDarkMode(loggedUser);
+      int? colorVal = await _prefs.getPrimaryColor(loggedUser);
+
+      if (apiPrefs != null) {
+        if (apiPrefs['isDarkMode'] != null) isDark = apiPrefs['isDarkMode'];
+        if (apiPrefs['primaryColor'] != null)
+          colorVal = apiPrefs['primaryColor'];
+      }
 
       setState(() {
         _username = loggedUser;
@@ -58,6 +68,7 @@ class _MyAppState extends State<MyApp> {
       _themeMode = isDark ? ThemeMode.dark : ThemeMode.light;
     });
     _prefs.setDarkMode(_username!, isDark);
+    _apiService.updatePrefs(_username!, isDark, _primaryColor.value);
   }
 
   void changeColor(Color color) {
@@ -66,11 +77,28 @@ class _MyAppState extends State<MyApp> {
       _primaryColor = color;
     });
     _prefs.setPrimaryColor(_username!, color.value);
+    _apiService.updatePrefs(
+      _username!,
+      _themeMode == ThemeMode.dark,
+      color.value,
+    );
   }
 
   void login(String username) async {
-    final isDark = await _prefs.isDarkMode(username);
-    final colorVal = await _prefs.getPrimaryColor(username);
+    // Al iniciar sesión, traemos las preferencias del servidor
+    final apiPrefs = await _apiService.getPrefs(username);
+
+    bool isDark = false;
+    int? colorVal;
+
+    if (apiPrefs != null) {
+      isDark = apiPrefs['isDarkMode'] ?? false;
+      colorVal = apiPrefs['primaryColor'];
+
+      // Actualizamos caché local
+      await _prefs.setDarkMode(username, isDark);
+      if (colorVal != null) await _prefs.setPrimaryColor(username, colorVal);
+    }
 
     setState(() {
       _username = username;
@@ -108,7 +136,7 @@ class _MyAppState extends State<MyApp> {
           seedColor: _primaryColor,
           brightness: Brightness.light,
         ),
-        textTheme: GoogleFonts.poppinsTextTheme(),
+        textTheme: GoogleFonts.poppinsTextTheme(ThemeData.light().textTheme),
         appBarTheme: const AppBarTheme(centerTitle: true),
         elevatedButtonTheme: ElevatedButtonThemeData(
           style: ElevatedButton.styleFrom(
@@ -121,6 +149,7 @@ class _MyAppState extends State<MyApp> {
         inputDecorationTheme: InputDecorationTheme(
           border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
           filled: true,
+          fillColor: Colors.grey.withOpacity(0.1),
         ),
       ),
       darkTheme: ThemeData(
@@ -129,8 +158,13 @@ class _MyAppState extends State<MyApp> {
           seedColor: _primaryColor,
           brightness: Brightness.dark,
         ),
-        textTheme: GoogleFonts.poppinsTextTheme(),
+        textTheme: GoogleFonts.poppinsTextTheme(ThemeData.dark().textTheme),
         appBarTheme: const AppBarTheme(centerTitle: true),
+        inputDecorationTheme: InputDecorationTheme(
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+          filled: true,
+          fillColor: Colors.white.withOpacity(0.05),
+        ),
       ),
       themeMode: _themeMode,
       home: _isLoggedIn ? HomePage(username: _username!) : const WelcomePage(),

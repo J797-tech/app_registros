@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'api_service.dart';
 import 'main.dart';
-import 'preferences_service.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -13,7 +13,7 @@ class LoginPage extends StatefulWidget {
 class _LoginPageState extends State<LoginPage> {
   final _userController = TextEditingController();
   final _passController = TextEditingController();
-  final _prefs = PreferencesService();
+  final _apiService = ApiService();
   bool _isRegistering = false;
   bool _obscureText = true;
   bool _isLoading = false;
@@ -29,26 +29,37 @@ class _LoginPageState extends State<LoginPage> {
 
     setState(() => _isLoading = true);
 
-    if (_isRegistering) {
-      await _prefs.registerUser(user, pass);
-      setState(() {
-        _isLoading = false;
-        _isRegistering = false;
-      });
-      _showSnackBar('¡Usuario registrado con éxito! Ya puedes iniciar sesión.');
-    } else {
-      final success = await _prefs.authenticate(user, pass);
-      if (success) {
-        if (mounted) {
-          // Primero actualizamos el estado global para que se muestre el HomePage
-          MyApp.of(context)?.login(user);
-          // Luego cerramos la pantalla de login para que no se quede encima
-          Navigator.of(context).pop();
-        }
+    try {
+      if (_isRegistering) {
+        final success = await _apiService.registerUser(user, pass);
+        setState(() {
+          _isLoading = false;
+          if (success) {
+            _isRegistering = false;
+            _showSnackBar(
+              '¡Usuario registrado con éxito! Ya puedes iniciar sesión.',
+            );
+          } else {
+            _showSnackBar(
+              'Error al registrar usuario. Posiblemente ya existe.',
+            );
+          }
+        });
       } else {
-        setState(() => _isLoading = false);
-        _showSnackBar('Usuario o contraseña incorrectos');
+        final success = await _apiService.loginUser(user, pass);
+        if (success) {
+          if (mounted) {
+            MyApp.of(context)?.login(user);
+            Navigator.of(context).pop();
+          }
+        } else {
+          setState(() => _isLoading = false);
+          _showSnackBar('Usuario o contraseña incorrectos');
+        }
       }
+    } catch (e) {
+      setState(() => _isLoading = false);
+      _showSnackBar('Error de conexión con el servidor');
     }
   }
 

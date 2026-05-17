@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 
 import 'main.dart';
 import 'preferences_service.dart';
+import 'api_service.dart';
+import 'task_model.dart';
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
@@ -12,32 +14,47 @@ class SettingsPage extends StatefulWidget {
 
 class _SettingsPageState extends State<SettingsPage> {
   final _prefs = PreferencesService();
+  final _apiService = ApiService();
   final _userController = TextEditingController();
   final _passController = TextEditingController();
   bool _isDark = false;
   bool _obscurePass = true;
   Color _currentColor = const Color(0xFF6750A4);
-  String? _oldUsername;
+  String? _username;
+  int _totalTasks = 0;
+  int _completedTasks = 0;
+
+  List<TaskModel> _taskHistory = [];
 
   @override
   void initState() {
     super.initState();
-    _loadSettings();
+    _loadAllData();
   }
 
-  Future<void> _loadSettings() async {
+  Future<void> _loadAllData() async {
     final currentUsername = await _prefs.getCurrentUser();
     if (currentUsername != null) {
       final userData = await _prefs.getUser(currentUsername);
       final dark = await _prefs.isDarkMode(currentUsername);
       final colorVal = await _prefs.getPrimaryColor(currentUsername);
+      
+      // Cargamos tareas desde el servidor
+      try {
+        _taskHistory = await _apiService.getTasks(currentUsername);
+      } catch (e) {
+        debugPrint("Error cargando historial: $e");
+      }
 
       setState(() {
-        _oldUsername = currentUsername;
+        _username = currentUsername;
         _userController.text = userData['username'] ?? '';
         _passController.text = userData['password'] ?? '';
         _isDark = dark;
         if (colorVal != null) _currentColor = Color(colorVal);
+
+        _totalTasks = _taskHistory.length;
+        _completedTasks = _taskHistory.where((r) => r.isCompleted).length;
       });
     }
   }
@@ -51,27 +68,39 @@ class _SettingsPageState extends State<SettingsPage> {
       return;
     }
 
-    if (_oldUsername != null) {
-      if (newUsername != _oldUsername) {
-        // Migrar todos los datos al nuevo nombre de usuario
-        await _prefs.migrateUserData(_oldUsername!, newUsername);
-        // Actualizar la contraseña en el nuevo nombre
+    if (_username != null) {
+      if (newUsername != _username) {
+        await _prefs.migrateUserData(_username!, newUsername);
         await _prefs.registerUser(newUsername, newPassword);
-        // Actualizar sesión actual
         await _prefs.setCurrentUser(newUsername);
-
-        if (mounted) {
-          MyApp.of(context)?.login(newUsername);
-        }
-        _oldUsername = newUsername;
+        if (mounted) MyApp.of(context)?.login(newUsername);
+        _username = newUsername;
       } else {
-        // Solo actualizar contraseña si el nombre es el mismo
         await _prefs.registerUser(newUsername, newPassword);
       }
+      if (mounted) _showSnackBar('Perfil actualizado');
+    }
+  }
 
-      if (mounted) {
-        _showSnackBar('Perfil actualizado y datos migrados');
+  void _clearAllTasks() async {
+    if (_username != null) {
+      try {
+        await _apiService.deleteAllTasks(_username!);
+        await _loadAllData();
+        _showSnackBar('Todo el historial ha sido eliminado');
+      } catch (e) {
+        _showSnackBar('Error al limpiar historial');
       }
+    }
+  }
+
+  void _deleteSingleTask(String id) async {
+    try {
+      await _apiService.deleteTask(id);
+      await _loadAllData();
+      _showSnackBar('Tarea eliminada');
+    } catch (e) {
+      _showSnackBar('Error al eliminar');
     }
   }
 
@@ -87,115 +116,290 @@ class _SettingsPageState extends State<SettingsPage> {
 
   @override
   Widget build(BuildContext context) {
-    final myApp = MyApp.of(context);
+    final colorScheme = Theme.of(context).colorScheme;
+    final productivity = _totalTasks == 0
+        ? 0
+        : ((_completedTasks / _totalTasks) * 100).toInt();
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Ajustes')),
+      appBar: AppBar(title: const Text('Perfil de Rendimiento'), elevation: 0),
       body: ListView(
-        padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
+        padding: const EdgeInsets.all(20),
         children: [
-          _buildSectionHeader(
-            context,
-            'Perfil de Usuario',
-            Icons.person_outline,
-          ),
-          const SizedBox(height: 20),
-          TextField(
-            controller: _userController,
-            decoration: const InputDecoration(
-              labelText: 'Nombre de Usuario',
-              prefixIcon: Icon(Icons.badge_outlined),
+          _buildProfileHeader(colorScheme, productivity),
+          const SizedBox(height: 25),
+          _buildStatsRow(colorScheme, productivity),
+          const SizedBox(height: 30),
+          _buildSectionTitle('Configuración de Cuenta'),
+          _buildAccountCard(colorScheme),
+          const SizedBox(height: 30),
+          _buildSectionTitle('Personalización'),
+          _buildAppearanceCard(colorScheme),
+          const SizedBox(height: 30),
+          _buildSectionTitle('Historial de Tareas'),
+          _buildHistoryList(colorScheme),
+          const SizedBox(height: 30),
+          _buildSectionTitle('Acciones de Datos'),
+          _buildDangerZone(colorScheme),
+          const SizedBox(height: 40),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildHistoryList(ColorScheme colorScheme) {
+    if (_taskHistory.isEmpty) {
+      return const Center(child: Text('No hay tareas en el historial'));
+    }
+
+    return Card(
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(20),
+        side: BorderSide(color: colorScheme.outlineVariant),
+      ),
+      child: ListView.separated(
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        itemCount: _taskHistory.length > 5 ? 5 : _taskHistory.length, // Mostrar últimas 5
+        separatorBuilder: (context, index) => const Divider(height: 1),
+        itemBuilder: (context, index) {
+          final task = _taskHistory[index];
+          return ListTile(
+            title: Text(
+              task.title,
+              style: TextStyle(
+                decoration: task.isCompleted ? TextDecoration.lineThrough : null,
+                fontSize: 14,
+              ),
             ),
-          ),
-          const SizedBox(height: 16),
-          TextField(
-            controller: _passController,
-            obscureText: _obscurePass,
-            decoration: InputDecoration(
-              labelText: 'Nueva Contraseña',
-              prefixIcon: const Icon(Icons.password_outlined),
-              suffixIcon: IconButton(
-                icon: Icon(
-                  _obscurePass ? Icons.visibility_off : Icons.visibility,
-                ),
-                onPressed: () => setState(() => _obscurePass = !_obscurePass),
+            subtitle: Text(task.category, style: const TextStyle(fontSize: 12)),
+            trailing: IconButton(
+              icon: const Icon(Icons.delete_outline, color: Colors.redAccent, size: 20),
+              onPressed: () => _deleteSingleTask(task.id!),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildProfileHeader(ColorScheme colorScheme, int productivity) {
+    return Center(
+      child: Column(
+        children: [
+          CircleAvatar(
+            radius: 50,
+            backgroundColor: colorScheme.primary,
+            child: Text(
+              _username != null ? _username![0].toUpperCase() : '?',
+              style: const TextStyle(
+                fontSize: 40,
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
               ),
             ),
           ),
-          const SizedBox(height: 20),
-          SizedBox(
-            width: double.infinity,
-            child: FilledButton.icon(
-              onPressed: _updateUser,
-              icon: const Icon(Icons.save_as_rounded),
-              label: const Text('GUARDAR CAMBIOS'),
+          const SizedBox(height: 15),
+          Text(
+            _username ?? 'Usuario',
+            style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+          ),
+          Text(
+            'Nivel de Productividad: $productivity%',
+            style: TextStyle(
+              color: colorScheme.primary,
+              fontWeight: FontWeight.w600,
             ),
           ),
-          const SizedBox(height: 40),
-          _buildSectionHeader(
-            context,
-            'Personalización',
-            Icons.palette_outlined,
-          ),
-          const SizedBox(height: 10),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatsRow(ColorScheme colorScheme, int productivity) {
+    return Row(
+      children: [
+        _buildStatCard(
+          'Tareas',
+          _totalTasks.toString(),
+          Icons.list_alt,
+          colorScheme,
+        ),
+        const SizedBox(width: 15),
+        _buildStatCard(
+          'Hechas',
+          _completedTasks.toString(),
+          Icons.check_circle_outline,
+          colorScheme,
+        ),
+        const SizedBox(width: 15),
+        _buildStatCard(
+          'Efectividad',
+          '$productivity%',
+          Icons.bolt,
+          colorScheme,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildStatCard(
+    String label,
+    String value,
+    IconData icon,
+    ColorScheme colorScheme,
+  ) {
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 15),
+        decoration: BoxDecoration(
+          color: colorScheme.surfaceContainerLow,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: colorScheme.outlineVariant),
+        ),
+        child: Column(
+          children: [
+            Icon(icon, color: colorScheme.primary, size: 20),
+            const SizedBox(height: 8),
+            Text(
+              value,
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: colorScheme.onSurface,
+              ),
+            ),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 12,
+                color: colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSectionTitle(String title) {
+    return Padding(
+      padding: const EdgeInsets.only(left: 4, bottom: 12),
+      child: Text(
+        title.toUpperCase(),
+        style: const TextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.bold,
+          letterSpacing: 1.2,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAccountCard(ColorScheme colorScheme) {
+    return Card(
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(20),
+        side: BorderSide(color: colorScheme.outlineVariant),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          children: [
+            TextField(
+              controller: _userController,
+              style: TextStyle(color: colorScheme.onSurface),
+              decoration: const InputDecoration(
+                labelText: 'Nombre de Usuario',
+                prefixIcon: Icon(Icons.person_outline),
+              ),
+            ),
+            const SizedBox(height: 15),
+            TextField(
+              controller: _passController,
+              obscureText: _obscurePass,
+              style: TextStyle(color: colorScheme.onSurface),
+              decoration: InputDecoration(
+                labelText: 'Contraseña',
+                prefixIcon: const Icon(Icons.lock_outline),
+                suffixIcon: IconButton(
+                  icon: Icon(
+                    _obscurePass ? Icons.visibility_off : Icons.visibility,
+                  ),
+                  onPressed: () => setState(() => _obscurePass = !_obscurePass),
+                ),
+              ),
+            ),
+            const SizedBox(height: 20),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton(
+                onPressed: _updateUser,
+                child: const Text('Actualizar Datos'),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAppearanceCard(ColorScheme colorScheme) {
+    return Card(
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(20),
+        side: BorderSide(color: colorScheme.outlineVariant),
+      ),
+      child: Column(
+        children: [
           SwitchListTile(
             title: const Text('Modo Oscuro'),
-            subtitle: Text(_isDark ? 'Activado' : 'Desactivado'),
-            secondary: Icon(_isDark ? Icons.dark_mode : Icons.light_mode),
+            secondary: const Icon(Icons.dark_mode_outlined),
             value: _isDark,
             onChanged: (val) {
               setState(() => _isDark = val);
-              myApp?.changeTheme(val);
+              MyApp.of(context)?.changeTheme(val);
             },
           ),
-          const SizedBox(height: 20),
+          const Divider(height: 1),
           const Padding(
-            padding: EdgeInsets.only(left: 16.0, bottom: 16.0),
+            padding: EdgeInsets.all(16),
             child: Text(
-              'Color de la aplicación',
+              'Color de Identidad',
               style: TextStyle(fontWeight: FontWeight.w600),
             ),
           ),
-          Center(
+          Padding(
+            padding: const EdgeInsets.only(bottom: 20),
             child: Wrap(
-              spacing: 15,
-              runSpacing: 15,
+              spacing: 12,
               children:
                   [
                     const Color(0xFF6750A4),
                     const Color(0xFF0061A4),
                     const Color(0xFF006A60),
                     const Color(0xFF984061),
-                    const Color(0xFF705D00),
-                    const Color(0xFF006874),
+                    const Color(0xFFFF5252),
                   ].map((color) {
                     final isSelected = _currentColor.value == color.value;
                     return GestureDetector(
                       onTap: () {
                         setState(() => _currentColor = color);
-                        myApp?.changeColor(color);
+                        MyApp.of(context)?.changeColor(color);
                       },
-                      child: AnimatedContainer(
-                        duration: const Duration(milliseconds: 300),
-                        padding: const EdgeInsets.all(3),
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          border: Border.all(
-                            color: isSelected ? color : Colors.transparent,
-                            width: 2,
-                          ),
-                        ),
-                        child: CircleAvatar(
-                          backgroundColor: color,
-                          radius: 20,
-                          child: isSelected
-                              ? const Icon(
-                                  Icons.check,
-                                  color: Colors.white,
-                                  size: 20,
-                                )
-                              : null,
-                        ),
+                      child: CircleAvatar(
+                        backgroundColor: color,
+                        radius: 18,
+                        child: isSelected
+                            ? const Icon(
+                                Icons.check,
+                                color: Colors.white,
+                                size: 18,
+                              )
+                            : null,
                       ),
                     );
                   }).toList(),
@@ -206,23 +410,53 @@ class _SettingsPageState extends State<SettingsPage> {
     );
   }
 
-  Widget _buildSectionHeader(
-    BuildContext context,
-    String title,
-    IconData icon,
-  ) {
-    return Row(
-      children: [
-        Icon(icon, size: 20, color: Theme.of(context).colorScheme.primary),
-        const SizedBox(width: 10),
-        Text(
-          title,
-          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+  Widget _buildDangerZone(ColorScheme colorScheme) {
+    return Card(
+      elevation: 0,
+      color: Colors.red.withOpacity(0.05),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(20),
+        side: const BorderSide(color: Colors.redAccent, width: 0.5),
+      ),
+      child: ListTile(
+        leading: const Icon(
+          Icons.delete_sweep_outlined,
+          color: Colors.redAccent,
+        ),
+        title: const Text(
+          'Limpiar Historial',
+          style: TextStyle(
+            color: Colors.redAccent,
             fontWeight: FontWeight.bold,
-            color: Theme.of(context).colorScheme.primary,
           ),
         ),
-      ],
+        subtitle: const Text('Borra todas tus tareas y reinicia estadísticas'),
+        onTap: () {
+          showDialog(
+            context: context,
+            builder: (context) => AlertDialog(
+              title: const Text('¿Estás seguro?'),
+              content: const Text('Esta acción no se puede deshacer.'),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('CANCELAR'),
+                ),
+                TextButton(
+                  onPressed: () {
+                    Navigator.pop(context);
+                    _clearAllTasks();
+                  },
+                  child: const Text(
+                    'LIMPIAR TODO',
+                    style: TextStyle(color: Colors.red),
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
     );
   }
 }
